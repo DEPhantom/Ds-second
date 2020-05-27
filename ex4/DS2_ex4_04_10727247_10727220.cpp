@@ -1,580 +1,859 @@
-/* team04
-   10727247 廖仁傑 
-   10727220 陳正浩*/ 
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <cstring>
+// 10727220 陳正浩 10727247 廖仁傑
+#include<stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <cstdlib>
-#include <iomanip> 
-#include <time.h>
+#include <string>
+#include<iostream>
+#include<iomanip>
+#include<fstream>  
+#include<vector>
+#include<time.h>
+#pragma GCC optimize(2)
 
-using namespace std;
 
-struct Sender{
-	char sender[10] ;
-	char recipient[10] ;
-	float weight ;
-};
 
-struct Relation{
-	char sender[10] ;
-	char recipient[10] ;
-	float weight ;
-	int connectnum ;
-	Relation * next ;
-};
 
-/*------------------------readfile start-----------------------------*/
+using namespace std ;
 
-class File {
-	
-	public:
-		bool readFile(string fileName) ;
-		vector<Sender> store ;
-		
-	private:
-		fstream file ;
-		
-}; 
+static fstream filein;
+static fstream fileout;
 
-bool File::readFile( string fileName ){
-	
-	fileName = "pairs" + fileName + ".bin" ;
-	int stNo = 0;
-	file.open( fileName.c_str(), fstream::in|fstream::binary );
-	
-	if( file.is_open() ){
-		
-		Sender temp ;
-		file.seekg( 0, file.end );
-		int stNo = file.tellg()/sizeof( temp );
-		file.seekg( 0, file.beg) ;
-		
-		for( int i = 0; i < stNo ; i++ ){
-			file.read( (char*)&temp, sizeof(temp) );
-			store.push_back( temp );
-		} // for
-		
-		file.close();
-		return true;
-		
-	} // if
-	else {
-		cout << "fileName:" <<  fileName + " can't found.'\r\n" ; 
-		return false;
-	} // else
+static string fileName;
 
-} // readFile()
+static double time1 = 0 ;
+static double time2 = 0 ;
 
-/*------------------------readfile end-----------------------------*/
 
-/*------------------------mission1 start-----------------------------*/
-
-class AdjacencyList {
-	
-	public:
-		AdjacencyList( string fileName ) ;
-		void search( string fileName ) ;
-		vector<Relation*> list ; // put mission1 major list
-		vector<Relation*> connection ; // put mission2 major list
-		vector<Relation> queue ;
-		
-	private:
-		File * reader ;
-		FILE * file ;
-        void createList( string fileName ) ;
-        void arrange( vector<Relation*>& templist ) ;
-        void writefileADJ( string fileName ) ;
-        void writefileCNT( string fileName ) ;
-        void enqueue( int pos ) ;
-        Relation* dequeue() ;
-        bool isVisit( char name[10] ) ;
-        bool firstcheck ;
-        void countConnectNum() ;
-        int findPos( char name[10] ) ;
-        void quickSort( vector<Relation*>& templist, int low, int high ) ;
-        int partitionSender( vector<Relation*>& templist, int low, int high ) ;
-        
-};
-
-AdjacencyList::AdjacencyList( string fileName ){
-	
-	reader = new File();
-	if ( reader->readFile(fileName) == true ) {
-		createList(fileName) ;
-	} // if
-	
-}
-
-void AdjacencyList::createList( string fileName ){
-	
-	Relation * temp ;
-	Relation * run ;
-	bool test = false ;
-	int size = reader->store.size() ;
-	
-	for ( int i = 0 ; i < size ; i++ ){
-		
-		temp = new Relation() ; // make a object first
-		strcpy( temp->sender, reader->store.at(i).sender ) ;
-		strcpy( temp->recipient, reader->store.at(i).recipient ) ;
-		temp->weight = reader->store.at(i).weight ;
-		temp->next = NULL ;
-		
-		if ( list.size() == 0 || 
-		    (list.size() != 0 && strcmp( reader->store.at(i-1).sender, reader->store.at(i).sender ) != 0) ){ // push back object in the beggining
-			
-			list.push_back(temp) ;
-			run = list.at(list.size()-1) ;
-			
-		} // if
-		else if ( list.size() != 0 && strcmp( reader->store.at(i-1).sender, reader->store.at(i).sender ) == 0 ){ // connect all recipient
-			
-			run->next = temp ;
-			run = run->next ;
-			 
-		}// else if
-		
-		for ( int j = 0 ; j < size ; j++ ){ // check recipient did not send any messege
-			if ( strcmp( reader->store.at(j).sender, reader->store.at(i).recipient ) == 0 ){
-				test = true ;
-			} // if
-		} // for
-		for ( int z = 0 ; z < list.size() ; z++ ){
-			if ( strcmp( list.at(z)->sender, reader->store.at(i).recipient ) == 0 ){
-				test = true ;
-			} // if
-		} // for
-			
-		if ( !test ){ // if recipient did not send any messege, set it
-			temp = new Relation() ;
-			strcpy( temp->sender, run->recipient ) ;
-			strcpy( temp->recipient, " " ) ;
-			temp->next = NULL ;
-			list.push_back(temp) ;
-		} // if
-		
-		test = false ;
-	} // for
-	
-	arrange(list) ;
-	writefileADJ(fileName) ;
-	
-} // createList()
-
-void AdjacencyList::arrange( vector<Relation*>& templist ){ // arrange all sender and recipient
-	
-	vector <Relation*> recipientList ;
-	Relation * walk ;
-	Relation * temp ;
-	int run = 0 ;
-
-	for ( int i = 0 ; i < templist.size() ; i++ ){
-		
-		for ( walk = templist.at(i) ; walk != NULL ; walk = walk->next ){ // copy all the recipient to vector
-			
-			temp = new Relation() ;
-			strcpy( temp->recipient, walk->recipient ) ;
-		    temp->weight = walk->weight ;
-		    recipientList.push_back( temp ) ;
-		    
-		} // for
-		
-		for ( int j = 0 ; j < recipientList.size()-1 ; j++ ){ // arrange all the recipient
-			
-		    for ( int z = j+1 ; z < recipientList.size() ; z++ ){
-		    	
-		    	if ( strcmp( recipientList.at(j)->recipient, recipientList.at(z)->recipient ) > 0 ){
-		   		    swap( recipientList.at(j), recipientList.at(z) ) ;
-			    } // if
-		    	
-			} // for
-		    
-		} // for
-		
-		for ( walk = templist.at(i), run = 0 ; walk != NULL, run < recipientList.size() ; walk = walk->next, run++ ){ // copy arranged vector to recipient list
-			
-			strcpy( walk->recipient, recipientList.at(run)->recipient ) ;
-		    walk->weight = recipientList.at(run)->weight ;
-
-		} // for
-		
-		recipientList.clear() ;
-	} // for
-
-    quickSort( templist, 0, templist.size()-1 ) ;
-
-} // arrange()
-
-void AdjacencyList::quickSort( vector<Relation*>& templist, int low, int high ){
-	
-	if ( low < high ){
-		
-		int pi = partitionSender( templist, low, high ) ;
-		quickSort( templist, low, pi-1 ) ;
-		quickSort( templist, pi+1, high ) ;
-		
-	} // if
-	
-} // quickSort()
-
-int AdjacencyList::partitionSender( vector<Relation*>& templist, int low, int high ){
-	
-	char pivot[10] ;  
-	strcpy( pivot, templist.at(high)->sender ) ;
-    int i = (low - 1); // Index of smaller element  
-  
-    for (int j = low; j <= high - 1; j++){  
-         
-        if ( strcmp( templist.at(j)->sender, pivot ) < 0 ){  
-            i++; // increment index of smaller element  
-            swap( templist.at(i), templist.at(j) );  
-        }  // if
-        
-    } // for
+struct data { 	// link list
+    char getid[10];
+    float weight;
+    int loc;
+    data * next; 
     
-    swap( templist.at(i+1), templist.at(high) ); 
-    return (i + 1);  
+
+};
+
+struct bindata { 	// get data
+    char putid[10];
+    char getid[10];
+    float weight;    
+
+};
+
+struct adjdata { 	//every adj data
+    data * head;
+    char id[10];
+    int connector;
+    vector<string> path;
+    bool havecame;
+    
+};
+
+
+class Adjlist{
 	
-} // partitionSender()
-
-void AdjacencyList::writefileADJ( string fileName ){ // write ADJ file
-
-    Relation * walk ;
-    int run = 1 ;
-    fileName = "pairss" + fileName + ".adj" ;
-	file = fopen( fileName.c_str(), "w") ;
-	fprintf( file,"<<< There are %d IDs in total. >>>", list.size() ) ;
-    printf( "\n<<< There are %d IDs in total. >>>\n", list.size() ) ;
-
-    for ( int i = 0 ; i < list.size() ; i++ ){
-    	
-    	if ( i < 9 ){
-    		fprintf( file,"\n[  %d] %s: \n\t", i+1, list.at(i)->sender ) ;
-		} // if
-		else{
-			fprintf( file,"\n[ %d] %s: \n\t", i+1, list.at(i)->sender ) ;
-		} // else
-    	
-		for ( walk = list.at(i), run= 1 ; walk != NULL ; walk = walk->next, run++ ){
-			
-			if ( strcmp( walk->recipient, " " ) == 0 ){
-				;
-			} // if
-			else if ( run < 10 ){
-				fprintf( file,"( %d) %s,\t%.2f\t", run, walk->recipient, walk->weight ) ;
-			} // else if
-			else if ( walk->next == NULL ){
-				fprintf( file,"(%d) %s,\t%.2f", run, walk->recipient, walk->weight ) ;
-			} // else
-			else {
-				fprintf( file,"(%d) %s,\t%.2f\t", run, walk->recipient, walk->weight ) ;
-			} // else
-			
-			if ( run != 0 && (run)%10 == 0 ){
-				fprintf( file, "\n\t" ) ;
-			} // if
-			
-		} // for
-		
-	} // for
-
-    fprintf( file,"\n<<< There are %d nodes in total. >>>\n", reader->store.size() ) ;
-    printf( "\n<<< There are %d nodes in total. >>>\n", reader->store.size() ) ;
-	fclose(file) ;
-
-} // writefile()
-
-void AdjacencyList::search( string fileName ){ // BFS search 
+    private: 
+        bindata bintemp;
+        data *temp;
+        data *tail;
+        int node;
+	    vector<int> queue;
+        int path;
+   
+    protected:
+	    vector<adjdata> adjlist;// 動態陣列
 	
-	int size = list.size() ;
-	Relation * temp ;
-	Relation * walk ;
-	bool beg = true ;
-	int pos ;
+	public:
+		Adjlist() {					//constructor
+          temp = NULL;
+          tail = NULL;
+          node = 0;
+		}
 
-	for ( int i = 0 ; i < size ; i++ ){
-		
-		beg = true ;
-		firstcheck = true ;
-		pos = i ;
-		
-		while ( beg || !queue.empty() ){
+       		
+		void print() {	
+          cout << "<<< There are " << adjlist.size() <<" IDs in total. >>>\n";
+          cout << "<<< There are " << node <<" nodes in total. >>>\n";	
+		} // print()
 
-			temp = new Relation() ;
-			enqueue(pos) ;
-			temp = dequeue() ;
-			
-			if ( !beg ){
-				walk->next = temp ;
-				walk = walk->next ;
-			} // if
-			
-			if ( beg ){
-				connection.push_back( temp ) ;
-				walk = connection.at(i) ;
-				beg = false ;
-			} // if
-			
-			if ( strcmp( walk->recipient, " " ) == 0 ){
-				break ;
-			} // if
-  
-            pos = findPos( walk->recipient ) ;
+
+        void addadj() {
+	      adjdata initial;
+          initial.head = NULL;
+          initial.connector = 0;
+          initial.havecame = false;
+          strcpy( initial.id, "" );
+	      if( adjlist.empty() ) { // 全空 
+	        adjlist.push_back( initial );
+            strcpy( adjlist[0].id, bintemp.getid );
+            adjlist.push_back( initial );
+            strcpy( adjlist[1].id, bintemp.putid ); 
+            adjlist[1].head = new data;
+            temp = adjlist[1].head;
+            temp->next = NULL;
+            strcpy( temp->getid, bintemp.getid );
+            temp->weight = bintemp.weight;
+            temp->loc = 0; // 排完序再給 
+           
+          } // if()
+          else { // 有東西 
+	        bool nodata = true;
+            int i = 0;
+            while( i < adjlist.size() && nodata ) {
+	          if( strcmp( adjlist[i].id, bintemp.getid ) == 0 ) { 
+	            nodata = false; 
+              } // if()
+              i++;
+            } // while 
+
+            if ( nodata == true ) {
+	          adjlist.push_back( initial );
+              strcpy( adjlist[adjlist.size()-1].id, bintemp.getid );
+	        } // if()             
+
+            i = 0;
+            nodata = true; 
+
+            while( i < adjlist.size() && nodata ) {
+	          if( strcmp( adjlist[i].id, bintemp.putid ) == 0 ) { // 已經有學號了  
+	            nodata = false; 
+                if( adjlist[i].head == NULL ) { //尚未有聯絡人 
+	              adjlist[i].head = new data;
+                  adjlist[i].head->next = NULL;
+                  strcpy( adjlist[i].head->getid, bintemp.getid );
+                  adjlist[i].head->weight = bintemp.weight;
+                  adjlist[i].head->loc = 0; // 排完序再給 
+                } // if()
+                else { // find the last and put
+                  temp = adjlist[i].head->next;
+                  tail = adjlist[i].head;
+                  while( temp != NULL ) {
+	                tail = tail->next;
+                    temp = temp->next;
+	              } // while()
+
+                  if( strcmp( tail->getid, bintemp.getid ) != 0 ) {
+                    temp = new data;
+                    temp->next = NULL;
+                    strcpy( temp->getid, bintemp.getid );
+                    temp->weight = bintemp.weight;
+                    temp->loc = 0; // 排完序再給 
+                    tail->next = temp;
+                  } // if()
+
+	            } // else
+
+              } // if()
+              i++;
+
+            } // while 
+
+            if ( nodata == true ) { // 沒學號 
+	          adjlist.push_back( initial );
+              strcpy( adjlist[adjlist.size()-1].id, bintemp.putid );
+              adjlist[adjlist.size()-1].head = new data;
+              adjlist[adjlist.size()-1].head->next = NULL;
+              strcpy( adjlist[adjlist.size()-1].head->getid, bintemp.getid );
+              adjlist[adjlist.size()-1].head->weight = bintemp.weight;
+              adjlist[adjlist.size()-1].head->loc = 0; // 排完序再給  
+
+	        } // if()
+
+	      } // else
+
+	    } // addadj()
+
+        void readinput() {		// read the input bin
+            int i = 0;
+			filein.read( bintemp.putid, sizeof( bintemp.getid ) ); 
+            filein.read( bintemp.getid, sizeof( bintemp.getid ) ); 
+            filein.read( (char *) &bintemp.weight, sizeof( float ) );
+            addadj();
+            node++;
+			while( !filein.eof( ) ) {	            
+	            filein.read( bintemp.putid, sizeof( bintemp.getid ) ); 
+                filein.read( bintemp.getid, sizeof( bintemp.getid ) ); 
+                filein.read( (char *) &bintemp.weight, sizeof( float ) );
+                addadj();
+                node++;
+			} // while()
+
+            node--;
+
+          
+
+		} // readinput()
+        
+        void sortput() {
+	      adjdata swap;
+	      int i = 0;
+          int j = 0;
+          int max = 0;
+	      while( i < adjlist.size() ) {
+	        while( j < adjlist.size() ) {
+	          if( strcmp( adjlist[j].id, adjlist[max].id ) < 0 ) {
+	            max = j;
+	          } // if()
+              j++;
+
+	        } // while()
+
+            strcpy( swap.id, adjlist[max].id );            
+            swap.head = adjlist[max].head;
+            strcpy( adjlist[max].id, adjlist[i].id );            
+            adjlist[max].head = adjlist[i].head;
+            strcpy( adjlist[i].id, swap.id );            
+            adjlist[i].head = swap.head;
+            j = i+1;
+            i++;
+            max = i;
             
-            if ( queue.empty() ){
-            	
-            	temp = new Relation() ;
-			    enqueue(pos) ;
-			    
-			} // if
+	      } // while
 
-		} // for
-		
-	} // for
-	
-	arrange( connection ) ;
-	writefileCNT( fileName ) ;
-	
-} // search()
 
-int AdjacencyList::findPos( char name[10] ){ // find name's sender position
-	
-	int size = list.size() ;
-	int pos = 0 ;
-	int in = 0 ;
-	int end = size-1  ;
-	int mid = ( in + end ) / 2 ;
-	
-	while ( 1 ){
-		
-		if ( strcmp( list.at(mid)->sender, name ) == 0 ){				
-			pos = mid ;
-			break ;
-		} // if
-		else if ( strcmp( list.at(mid)->sender, name ) > 0 ){
-			
-			end = mid - 1 ;
-			mid =  ( in + end ) / 2 ;
-		} // else if
-		else if ( strcmp( list.at(mid)->sender, name ) < 0 ){
-			in = mid + 1 ;
-			mid =  ( in + end ) / 2 ;
-		} // else if
-		
-	} // while
-	
-	return pos ;
-			
-}  // findPos()
+        } // sortput()
 
-void AdjacencyList::enqueue( int pos ){ // add all recipient to queue
+        void sortget() {
+	      data *swap = NULL;
+          data *stail = NULL;
+          data *walk = NULL;
+          data tempdata;
+          int i = 0;
+	      while( i < adjlist.size() ) {
 	
-	Relation * walk ;
-	Relation temp ;
-	for ( walk = list.at(pos) ; walk != NULL ; walk = walk->next ){
+	        walk = adjlist[i].head;
+            stail = walk;
+            swap = walk;
+	        while( walk != NULL ) {
+	
+              while( stail->next != NULL ) {
+	            if( strcmp( stail->next->getid, swap->getid ) < 0 ) { 
+                  swap = stail->next;
+                } // if()
+
+                stail = stail->next;
+
+	          } // while()
+
+              strcpy( tempdata.getid, swap->getid );
+              tempdata.loc = swap->loc;
+              tempdata.weight = swap->weight;
+              strcpy( swap->getid, walk->getid );
+              swap->loc = walk->loc;
+              swap->weight = walk->weight;
+              strcpy( walk->getid, tempdata.getid );
+              walk->loc = tempdata.loc;
+              walk->weight = tempdata.weight;
+
+              walk = walk->next;
+              stail = walk;
+              swap = walk;
+
+	        } // while()
+
+            i++;
+             
+	      } // while
+	      
+	    } // sortget()
+
+        void write() {
+	      data *walk = NULL;
+	      fileName = fileName.substr( 5, 3 );
+	      fileName = "pairs" + fileName + ".adj" ;
+	      filein.open( fileName.c_str() ,ios::out ) ;
+          int i = 0;
+          int j = 0;
+          int count = 0;
+          filein << "<<< There are " << adjlist.size() <<" IDs in total. >>>\n";
+          while( i < adjlist.size() ) {
+	        filein << "[ " << i+1 << " ]" << " ";
+            filein << adjlist[i].id << ":\n";
+            walk = adjlist[i].head;
+            while ( walk != NULL ) {
+              
+              filein << "	("<< j+1 << ") ";
+              filein << walk->getid << ",  ";
+              filein << walk->weight << "	";
+              if( count < 9)
+                count++;
+              else {
+	            filein << "\n";
+	            count = 0;
+	          } // else
+                
+              j++;
+              walk = walk->next;
+
+            } // while()
+
+            filein << "\n";
+	        i++;
+            j = 0;
+            count = 0;
+
+          } // while()
+
+          filein << "<<< There are " << node <<" nodes in total. >>>\n";
+          filein.close();
+
+	    } // write()
+
+        void delet() {
+	       adjlist.clear();
+	    } // delet()
+
+        bool havelist() {
+	       if( adjlist.empty() ) {
+	         return false;
+	       } // if()
+           else {
+	         return true;
+	       } // else
+	    } // havelist()
+
+        bool havepath() {
+          int i = 0;
+          bool empty = true;
+          while( i < adjlist.size() ) {
+	        if( !adjlist[i].path.empty() )
+              empty = false;
+            i++; 
+	      } // while()
+
+          return !empty;
+
+       } // havepath
+        		
+		void print2() {	
+          cout << "<<< There are " << adjlist.size() <<" IDs in total. >>>\n";	
+		} // print()
+
+
+        void mark() {
+	      int i = 0;
+          int j = 0;
+	      while( i < adjlist.size() ) {
+	        temp = adjlist[i].head;
+	        while( temp != NULL ) {
+	          while( j < adjlist.size() ) {
+	            if( strcmp( temp->getid, adjlist[j].id ) == 0 )
+	              temp->loc = j;
+                j++;
+
+              } // while()
+              j = 0;
+              temp = temp->next;
+
+	        } // while()
+            i++; 
+
+	      } // while()
+
+	    } // mark()
+
+        void bfsearch( int loc ) {
+          temp = adjlist[queue[0]].head;
+          adjlist[loc].havecame = true;
+          while( temp != NULL ) {
+            if( adjlist[temp->loc].havecame == false ) {
+	          adjlist[loc].path.push_back( adjlist[temp->loc].id );
+              adjlist[temp->loc].havecame = true;
+	          queue.push_back( temp->loc );
+              path++;
+	        } // if
+             
+            temp = temp->next;
+
+          } // while()
+
+          queue.erase( queue.begin() ); 
+	      
+        } // bfsearch()
+
+        void counts( int loc ) {
+          path = 0;
+          queue.push_back( loc );
+          bfsearch( loc ); 
+          while( queue.empty() == false ) {
+	        bfsearch( loc );
+          } // while() 
+
+
+	    } // counts()
+
+        void allinitail() {
+	      int i = 0;
+          while( i < adjlist.size() ) {
+            adjlist[i].havecame = false;
+            i++; 
+	      } // while()
+
+	    } // allinitail()
+
+        void setconnect() {
+	      int i = 0;
+          while( i < adjlist.size() ) {
+	        allinitail();
+	        counts( i );
+            adjlist[i].connector = path;
+            i++; 
+	      } // while()
+
+	    } // setconnect()
+
+        void sortput2() { 
+	      adjdata swap;
+	      int i = 0;
+          int j = 0;
+          int max = 0;
+	      while( i < adjlist.size() ) {
+	        while( j < adjlist.size() ) {
+	          if( adjlist[j].connector > adjlist[max].connector ) {
+	            max = j;
+	          } // if()
+              else if( adjlist[j].connector == adjlist[max].connector 
+                       && strcmp( adjlist[j].id, adjlist[max].id ) < 0 ) {
+	            max = j;
+	          } // else if
+              j++;
+
+	        } // while()
+
+            swap = adjlist[i];
+            adjlist[i] = adjlist[max];
+            adjlist[max] = swap;
+            j = i+1;
+            i++;
+            max = i;
+            
+	      } // while
+
+
+        } // sortput2()
+
+        void sortpath() {
+	      char tempid[10];
+          int i = 0;
+          int j = 0;
+          int k = 0;
+          int max = 0; 
+	      while( i < adjlist.size() ) {
+	
+	        while( j < adjlist[i].path.size() ) {
+	
+              max = j;
+              strcpy( tempid, adjlist[i].path[j].c_str() );
+              while( k < adjlist[i].path.size() ) {
+	            if( strcmp( adjlist[i].path[k].c_str(), tempid ) < 0 ) {
+                  strcpy( tempid, adjlist[i].path[k].c_str() );
+                  max = k;
+                } // if() 
+
+                k++;
+
+	          } // while()
+
+              adjlist[i].path[max] = adjlist[i].path[j];
+              adjlist[i].path[j] = tempid;
+              j++;
+              k = j;
+
+	        } // while()
+
+            i++;
+            j = 0;
+            k = 0;
+             
+	      } // while
+	      
+	    } // sortpath()
+
+        void write2() {
+	      fileName = fileName.substr( 5, 3 );
+	      fileName = "pairs" + fileName + ".cnt" ;
+	      filein.open( fileName.c_str() ,ios::out ) ;
+          int i = 0;
+          int j = 0;
+          int count = 0;
+          filein << "<<< There are " << adjlist.size() <<" IDs in total. >>>\n";
+          while( i < adjlist.size() ) {
+	        filein << "[ " << i+1 << " ]" << " ";
+            filein << adjlist[i].id << "(" << adjlist[i].path.size() <<"):\n";
+            while ( j < adjlist[i].path.size() ) {
+              
+              filein << "	("<< j+1 << ") ";
+              filein << adjlist[i].path[j] << "	";
+              if( count < 9)
+                count++;
+              else {
+	            filein << "\n";
+	            count = 0;
+	          } // else
+                
+              j++;
+
+            } // while()
+
+            filein << "\n";
+	        i++;
+            j = 0;
+            count = 0;
+
+          } // while()
+
+          filein.close();
+
+	    } // write()
+
+        
+
 		
-		if ( firstcheck || !isVisit( walk->recipient ) ){
-			strcpy( temp.recipient, walk->recipient ) ;
-			strcpy( temp.sender, walk->sender ) ;
-		    queue.push_back( temp ) ;
+}; // Bfs
+
+
+class Dfs : public Adjlist {
+	
+    private:
+        data *temp;
+        vector<int> queue; 
+        int path;
+        float effect;  
+
+	public:
+		Dfs( float ask ) {					//constructor 
+          temp = NULL; 
+          effect = ask;    
+		}
+
+        
+		
+		void print() {	
+          cout << "<<< There are " << adjlist.size() <<" IDs in total. >>>\n";	
+		} // print()
+
+        void printall() {
+	      ;	
+	    } // printall() 
+
+        void mark() {
+	      int i = 0;
+          int j = 0;
+	      while( i < adjlist.size() ) {
+	        temp = adjlist[i].head;
+	        while( temp != NULL ) {
+	          while( j < adjlist.size() ) {
+	            if( strcmp( temp->getid, adjlist[j].id ) == 0 )
+	              temp->loc = j;
+                j++;
+
+              } // while()
+              j = 0;
+              temp = temp->next;
+
+	        } // while()
+            i++; 
+
+	      } // while()
+
+	    } // mark()
+
+        bool nodone( int &loc ) { // 找到還沒走過的那個 
+          int i = 0;
+          while( i < adjlist.size() ) {
+	        if( adjlist[i].havecame == false ) {
+	          loc = i;
+              return true;
+	        } // if()
+	        
+            i++;
+	      } // while
+
+          return false;
+
+	    } // nodone()
+
+        void bfsearch( int loc ) {
+          temp = adjlist[queue[0]].head;
+          adjlist[loc].havecame = true;
+          while( temp != NULL ) {
+            if( adjlist[temp->loc].havecame == false && temp->weight >= effect ) {
+	          adjlist[loc].path.push_back( adjlist[temp->loc].id );
+              adjlist[temp->loc].havecame = true;
+	          queue.push_back( temp->loc );
+              path++;
+	        } // if
+             
+            temp = temp->next;
+
+          } // while()
+
+          queue.erase( queue.begin() ); 
+	      
+        } // bfsearch()
+
+        void counts( int loc ) {
+          path = 0;
+          queue.push_back( loc );
+          bfsearch( loc ); 
+          while( queue.empty() == false ) {
+	        bfsearch( loc );
+          } // while() 
+
+
+	    } // counts()
+
+        void allinitail() {
+	      int i = 0;
+          while( i < adjlist.size() ) {
+            adjlist[i].havecame = false;
+            i++; 
+	      } // while()
+
+	    } // allinitail()
+
+        void setconnect() {
+	      int i = 0;
+          while( i < adjlist.size() ) {
+	        allinitail();
+	        counts( i );
+            adjlist[i].connector = path;
+            i++; 
+	      } // while()
+
+	    } // setconnect()
+
+        void sortput2() { 
+	      adjdata swap;
+	      int i = 0;
+          int j = 0;
+          int max = 0;
+	      while( i < adjlist.size() ) {
+	        while( j < adjlist.size() ) {
+	          if( adjlist[j].connector > adjlist[max].connector ) {
+	            max = j;
+	          } // if()
+              j++;
+
+	        } // while()
+
+            swap = adjlist[i];
+            adjlist[i] = adjlist[max];
+            adjlist[max] = swap;
+            j = i+1;
+            i++;
+            max = i;
+            
+	      } // while
+
+        } // sortput2()
+
+        void sortpath() {
+	      char tempid[10];
+          int i = 0;
+          int j = 0;
+          int k = 0;
+          int max = 0; 
+	      while( i < adjlist.size() ) {
+	
+	        while( j < adjlist[i].path.size() ) {
+	
+              max = j;
+              strcpy( tempid, adjlist[i].path[j].c_str() );
+              while( k < adjlist[i].path.size() ) {
+	            if( strcmp( adjlist[i].path[k].c_str(), tempid ) < 0 ) {
+                  strcpy( tempid, adjlist[i].path[k].c_str() );
+                  max = k;
+                } // if() 
+
+                k++;
+
+	          } // while()
+
+              adjlist[i].path[max] = adjlist[i].path[j];
+              adjlist[i].path[j] = tempid;
+              j++;
+              k = j;
+
+	        } // while()
+
+            i++;
+            j = 0;
+            k = 0;
+             
+	      } // while
+	      
+	    } // sortpath()
+
+        void write() {
+	      fileName = fileName.substr( 5, 3 );
+	      fileName = "pairs" + fileName + ".inf" ;
+	      filein.open( fileName.c_str() ,ios::out ) ;
+          int i = 0;
+          int j = 0;
+          int count = 0;
+          filein << "<<< There are " << adjlist.size() <<" IDs in total. >>>\n";
+          while( i < adjlist.size() ) {
+	        if( adjlist[i].path.size() > 0 ) {
+	          filein << "[ " << i+1 << " ]" << " ";
+              filein << adjlist[i].id << "(" << adjlist[i].path.size() <<"):\n";
+              while ( j < adjlist[i].path.size() ) {
+              
+                filein << "	("<< j+1 << ") ";
+                filein << adjlist[i].path[j] << "	";
+                if( count < 9)
+                  count++;
+                else {
+	              filein << "\n";
+	              count = 0;
+	            } // else
+
+
+                j++;
+
+              } // while()
+
+              filein << "\n"; 
+            } // if() 
+
+	        i++;
+            j = 0;
+            count = 0;
+
+          } // while()
+
+          filein.close();
+
+	    } // write()
+
+}; // class
+
+
+
+
+int main() {
+	
+    Adjlist adj = Adjlist();
+    do {
+	
+        int order;
+		string command = "" ; 
+        string sid = "";
+    	//string title, numstr ;
+
+
+    	cout << endl << "**** Graph data manipulation ****";
+    	cout << endl << "* 0. QUIT                       *"; 
+   		cout << endl << "* 1. Build adjacency lists      *"; 
+   		cout << endl << "* 2. Compute connection counts  *";
+        cout << endl << "* 3. Estimate influence values  *"; 
+    	cout << endl << "*********************************";
+    	cout << endl << "Input a command(0, 1, 2, 3): "; 
+    	cin >> command ; 
+    	if ( ( command.compare( "1" ) == 0 ) || ( command.compare( "2" ) == 0 ) || ( command.compare( "3" ) == 0 ) 
+             || ( command.compare( "4" ) == 0 ) ) {
+
+          if ( ( command.compare( "1" ) == 0 ) || ( command.compare( "3" ) == 0 ) ) {  
+        	cout << endl << "Input a file number ( e.g., 401, 402, ...): ";
+            fileName = "";
+        	cin >> fileName;
+            fileName = "pairs" + fileName + ".bin" ;
+            filein.open( fileName.c_str() ,ios::in | ios::binary  ) ;
+            if ( !filein ) {
+	          fileName = fileName.substr( 5, 3 );
+	          fileName = "pairs" + fileName + ".txt" ;
+              filein.open( fileName.c_str() ,ios::in ) ;
+              while( !filein ) {
+		        cout << endl << "Open error, Input a file number ( e.g., 401, 402, ...): ";
+		        cin >> fileName;
+                fileName = "pairs" + fileName + ".txt" ;
+                filein.open( fileName.c_str() ,ios::in ) ;	
+			  } // while()
+
+              filein.close();
+
+	        } // if()
 		    
-		} // if
-		
-	} // for
-	
-	firstcheck = false ;
-} // enqueue()
+          } // if() 
 
-Relation* AdjacencyList::dequeue(){ // get first recipient from queue and remove first item
-	
-	Relation * retemp = new Relation() ;
-	strcpy( retemp->recipient, queue.at(0).recipient ) ;
-	strcpy( retemp->sender, queue.at(0).sender ) ;
-	retemp->next = NULL ;
-	queue.erase(queue.begin()) ;
-	return retemp ;
-	
-} // dequeue()
-
-bool AdjacencyList::isVisit( char name[10] ){ // check name whether exist before
-	
-	int size = queue.size() ;
-	Relation * walk ;
-	
- 	if ( strcmp( name, connection.at(connection.size()-1)->sender ) == 0 ){ // the same as sender
-		return true ;
-	} // if
-	
-	if ( strcmp( name, " " ) == 0 ){
-		return true ;
-	} // if 
-	
-	for ( walk = connection.at(connection.size()-1) ; walk != NULL ; walk = walk->next ){
-		
-		if ( strcmp( name, walk->recipient ) == 0 ){
-			return true ;
-		} // if
-		
-	} // for
-
-    for ( int i = 0 ; i < queue.size() ; i++ ){
-    	
-    	if ( strcmp( name, queue.at(i).recipient ) == 0 )
-    	    return true ;
-    	
-	} // for
-	return false ;
-	
-} // isVisit()
-
-void AdjacencyList::countConnectNum(){ // count connection Num and arrange it
-	
-	int size = connection.size() ;
-	Relation* walk ;
-	int count = 0 ; 
-	
-	for ( int i = 0 ; i < size ; i++ ){ // count connection Num
-		
-		for ( walk = connection.at(i) ; walk != NULL ; walk = walk->next ){
-			if ( strcmp( walk->recipient, " " ) != 0 )
-			    count++ ;
-		} // for
-		
-		connection.at(i)->connectnum = count ;
-		count = 0 ;
-	} // for
-	
-	quickSort( connection, 0, connection.size()-1 ) ;
-	
-	for ( int i = 0 ; i < size-1 ; i++ ){ // arrange by connection Num
-		
-		for ( int j = i ; j < size ; j++ ){
-		    if ( connection.at(i)->connectnum < connection.at(j)->connectnum ){
-		   		swap( connection.at(i), connection.at(j) ) ;
-			} // if	
-		} // for
-		
-	} // for
-
-	
-} // countConnectNum()
-
-void AdjacencyList::writefileCNT( string fileName ){ // write CNT file
-
-    Relation * walk ;
-    int run = 1 ;
-    countConnectNum() ;
-    fileName = "pairss" + fileName + ".cnt" ;
-	file = fopen( fileName.c_str(), "w") ;
-	fprintf( file,"<<< There are %d IDs in total. >>>", connection.size() ) ;
-    printf( "\n<<< There are %d IDs in total. >>>\n", connection.size() ) ;
-    
-    for ( int i = 0 ; i < connection.size() ; i++ ){
-    	
-    	if ( i < 9 ){
-    		fprintf( file,"\n[  %d] %s(%d): \n", i+1, connection.at(i)->sender, connection.at(i)->connectnum ) ;
-		} // if
-		else if ( i < 99 && i >= 9 ){
-			fprintf( file,"\n[ %d] %s(%d): \n", i+1, connection.at(i)->sender, connection.at(i)->connectnum ) ;
-		} // else
-		else if ( i >= 99){
-			fprintf( file,"\n[%d] %s(%d): \n", i+1, connection.at(i)->sender, connection.at(i)->connectnum ) ;
-		} // else if
-    	
-		for ( walk = connection.at(i), run = 1 ; walk != NULL ; walk = walk->next, run++ ){
+            
 			
-			if ( strcmp( walk->recipient, " ") == 0 ){
-				;
-			} // if
-			else if ( run < 10 ){
-				fprintf( file,"\t( %d) %s", run, walk->recipient ) ;
-			} // else if
-			else if ( run > 99 ){
-				fprintf( file,"\t(%d) %s", run, walk->recipient ) ;
-			} // else if
-			else if ( run != 1 && (run-1)%10 == 0  ){
-				fprintf( file,"\t(%d) %s", run, walk->recipient ) ;
-			} // else if 
-			else if ( run%10 == 0 ){
-				fprintf( file,"\t(%d) %s", run, walk->recipient ) ;
-			} // else if 
-			else if ( walk->next == NULL ){
-				fprintf( file,"\t(%d) %s", run, walk->recipient ) ;
-			} // else
-			else {
-				fprintf( file,"\t(%d) %s", run, walk->recipient ) ;
-			} // else
 			
-			if ( run != 0 && (run)%10 == 0 ){
-				fprintf( file, "\n" ) ;
-			} // if
 			
-		} // for
-		
-	} // for
+			if ( command.compare( "1" ) == 0 ) {
+	          if( adj.havelist() ) {
+	            adj.delet();
+                adj = Adjlist();
+	          } // if()  
 
-    fprintf( file, "\n" ) ;
-	fclose(file) ;
+              adj.readinput();
+              filein.close();
+              adj.sortget();
+              adj.sortput();
+              adj.write();
+              adj.print();
 
-} // writefile()
+              
+              			
+			}
+            
+            else if ( command.compare( "2" ) == 0 ) {
+              if ( adj.havelist() ) {
+	            if ( !adj.havepath() ) {
+                  adj.mark();
+                  adj.setconnect();
+                  adj.sortput2(); 
+                  adj.sortpath();
+                } // if()
+                  adj.write2();
+                  adj.print2();  
+              } // if()            
+              else
+                cout << "Do Mission One First" << endl;
+              
+	        } // else if()
+            else if ( command.compare( "3" ) == 0 ) {
+	          float ask;
+              cout << "Input a real number in [0,1]:" ;
+              cin >> ask;
+	          Dfs d1 = Dfs( ask );              
+              d1.readinput();
+              filein.close();
+              d1.sortget();
+              d1.sortput();
+              d1.mark();
+              d1.setconnect();
+              d1.sortput2(); 
+              d1.sortpath();
+              d1.write();
+              d1.print();
+              d1.delet();;
+              
+              
+	        } // else if()
+            else if ( command.compare( "4" ) == 0 ) {
+	          ;
+              
+              
+	        } // else if()
+            
+			
+			
+			
 
-string getMenu () {
-	string msg = "\r\n";
-	msg += "**** Graph data manipulation ****\r\n";
-	msg += "* 0. QUIT                       *\r\n";
-	msg += "* 1. Build adjacency lists      *\r\n";
-	msg += "* 2. Compute connection counts  *\r\n";
-	msg += "*********************************\r\n"; 
-	msg += "Input a choice(0, 1, 2):";
-	return msg;
-} // getMenu()
 
-int main () {
+    	} // if
+     	else if ( command.compare( "0" ) == 0 )
+       		break;
+     	else
+      		 cout << endl << "Command does not exist!" << endl;
+
+	}  while (true);
 	
-	int command = -1 ;
-	string name;
-	bool test = false ;
-	
-	while ( command != 0 ) {
-		
-        AdjacencyList * user ;
 
-		cout << getMenu();
-		cin >> command;
-		
-		if(command == 0);	// 離開 
-		
-		else if (command == 1){	// 任務一 
-		    test = true ;
-			cout << "\r\nInput a file number ([0] Quit):";
-			cin >> name;
-			
-			if ( strcmp(name.c_str(),"0")==0 );
-			else {
-				
-				user = new AdjacencyList( name ) ;
+	return 0;
 
- 			} // else
-		} // else if
-		else if (command == 2){
-			
-			if ( test ){
-				user->search( name ) ;
-				test = false ;
-			} // if
-			else {
-				cout << "### There is no graph and choose 1 first. ###\n" ;
-			} // else
-			
-		} // else if
-		else {
-			cout << "Command does not exist!" << endl ;
-		} // else
-		
-	} // while
-	
-	system("pause");
-}
+} // main() 
+
+
+
